@@ -174,7 +174,6 @@ class Visualization:
     def plot_moving_average(mov_derivatives, mov_thresholds, opt_threshold):
         
         max_der = max(mov_derivatives)
-        print(mov_derivatives)
         fig, ax = plt.subplots(figsize=(7,5))
 
         ax.plot(mov_thresholds[:-1], mov_derivatives, color='royalblue')

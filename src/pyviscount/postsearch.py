@@ -314,7 +314,6 @@ class PostSearchOrchestrated:
         self.postsearch_runner = PostSearchRunner(config)
         self.post_partition = PostSearchPartition(config)
         fdr_calc_name = config.get("validation.general", "validation_mode").split(" ")[0].strip().capitalize() + "FdpFdrCalculation"
-        print(fdr_calc_name)
         self.fdp_fdr_calculation = getattr(fdr, fdr_calc_name)(config)
 
 

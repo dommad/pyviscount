@@ -152,7 +152,6 @@ class EntrapmentCountingCalculator(FdpFdrCalculator):
         pvals = pvals[pvals >= 0]
         pvals = pvals[pvals <= 1]
         pi0_est = get_pi0(pvals)
-        print(f"pi0 is: {pi0_est}")
 
         #pi0_est = df['gt_status'].value_counts().get(0, 0) / max(1,len(df))
 

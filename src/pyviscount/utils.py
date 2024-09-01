@@ -24,6 +24,7 @@ def get_thresholds_dictionary(num_thresholds):
             'xcorr': np.linspace(XCORR_LOW, XCORR_HIGH, num_thresholds),
             'hyperscore': np.linspace(HYPER_LOW, HYPER_HIGH, num_thresholds),
             'fval': np.linspace(SPECTRAST_FVAL_LOW, SPECTRAST_FVAL_HIGH, num_thresholds),
+            'KS_score': np.linspace(SPECTRAST_KS_LOW, SPECTRAST_KS_HIGH, num_thresholds),
             'dot': np.linspace(SPECTRAST_DOT_LOW, SPECTRAST_DOT_HIGH, num_thresholds),
             'percolator_score': np.linspace(PERCOLATOR_LOW, PERCOLATOR_HIGH, num_thresholds),
             'msgf_raw_score': np.linspace(MSGF_RAW_LOW, MSGF_RAW_HIGH, num_thresholds),

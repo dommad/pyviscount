@@ -12,7 +12,7 @@ from .fdr import DecoyCountingCalculator, BhFdpFdrCalculator
 from .correction import TEVPartitionCorrection, SidakCorrectionMixin
 from .decoy_generation import ShuffledDecoy, PeptideDecoy
 from .exporter import PeptideExporter
-from .postsearch import PostSearchOrchestrated
+from .postsearch import PostSearchOrchestrated, ThresholdEvaluator
 from .scores import ScoreProcessing
 from . import optimal_selection as osel
 import matplotlib.pyplot as plt
@@ -178,9 +178,8 @@ def run_postsearch_validation_new(config_file_path, target_file, subject_file=No
     fdp_fdr_results, _, updated_df = PostSearchOrchestrated(config).run_postsearch_validation(target_df, subject_df, decoy_df)
 
     plot_postsearch_results(config, fdp_fdr_results, target_df, subject_df, decoy_df)
-    
-    thresholds = np.linspace(0.2, 0.4, 50)
-    opt_threshold = get_optimal_threshold(fdp_fdr_results, thresholds)
+
+    opt_threshold = get_optimal_threshold(config, fdp_fdr_results)
     num_rep = 100
     bootstrap_results, _, updated_df = PostSearchOrchestrated(config).run_postsearch_bootstrap(opt_threshold, num_rep, target_df, subject_df, decoy_df)
     plot_optimal_fdp_fdr(bootstrap_results)
@@ -188,7 +187,9 @@ def run_postsearch_validation_new(config_file_path, target_file, subject_file=No
     return fdp_fdr_results, bootstrap_results
 
 
-def get_optimal_threshold(fdp_fdr_results, thresholds):
+def get_optimal_threshold(config, fdp_fdr_results):
+
+    thresholds = ThresholdEvaluator(config).threshold_dictionary()
 
     oq = osel.OptimalQualityThresholdFinder(fdp_fdr_results)
     norm_der_means, opt_threshold = oq.run(thresholds)

@@ -88,10 +88,10 @@ class PlotPostSearchResultsInitializer:
         self.output_path = config.get('plotting', 'output_path', fallback='./').split(" ")[0].strip()
         self.fdp_fdr_plotter = plot.FdpFdrPlotter(fdp_fdr_results, self.output_path)
         hist_score = config.get('validation.general', 'threshold_score', fallback='tev').split(" ")[0].strip()
-        self.hist_plotter = plot.HistogramPlotter(target_df, subject_df, decoy_df, 'kde', hist_score)
+        # self.hist_plotter = plot.HistogramPlotter(target_df, subject_df, decoy_df, 'kde', hist_score)
     
     def initialize(self):
-        return plot.PlotValidation(self.fdp_fdr_plotter, self.hist_plotter)
+        return plot.PlotValidation(self.fdp_fdr_plotter)
     
 
 class PartitionScoreCorrectionInitializer:
