@@ -315,6 +315,7 @@ class PostSearchOrchestrated:
         self.post_partition = PostSearchPartition(config)
         fdr_calc_name = config.get("validation.general", "validation_mode").split(" ")[0].strip().capitalize() + "FdpFdrCalculation"
         self.fdp_fdr_calculation = getattr(fdr, fdr_calc_name)(config)
+        self.num_rep = int(config.get("validation.extra", "num_bootstrap").strip())
 
 
     def run_postsearch_validation(self, target_df, subject_df=None, decoy_df=None):
@@ -328,7 +329,7 @@ class PostSearchOrchestrated:
             cur_fdr_fdp_results = self.fdp_fdr_calculation.calculate_fdp_fdr_contour(updated_df, decoy_df)
             fdr_fdp_results.append(cur_fdr_fdp_results)
 
-        return fdr_fdp_results, threshold_dict, updated_df
+        return fdr_fdp_results
     
 
     def run_postsearch_single_threshold(self, target_df, th_val, subject_df=None, decoy_df=None):
@@ -337,18 +338,18 @@ class PostSearchOrchestrated:
         return updated_df
 
 
-    def run_postsearch_bootstrap(self, opt_threshold, num_rep, target_df, subject_df=None, decoy_df=None):
+    def run_postsearch_bootstrap(self, opt_threshold, target_df, subject_df=None, decoy_df=None):
         
         fdr_fdp_results = []
         cur_rep = 0
-        while cur_rep <= num_rep:
+        while cur_rep <= self.num_rep:
         
             updated_df = self.postsearch_runner.run_postsearch(opt_threshold, target_df, subject_df)
             cur_fdr_fdp_results = self.fdp_fdr_calculation.calculate_fdp_fdr_contour(updated_df, decoy_df)
             fdr_fdp_results.append(cur_fdr_fdp_results)
             cur_rep += 1
 
-        return fdr_fdp_results, opt_threshold, updated_df
+        return fdr_fdp_results
 
 
 

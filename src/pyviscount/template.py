@@ -1,6 +1,6 @@
 """Abstract classes for validation by partition analysis"""
 
-from typing import List
+from typing import Tuple
 from abc import ABC, abstractmethod
 import pandas as pd
 import numpy as np
@@ -14,7 +14,7 @@ class FileReading:
         self.parser = parser
 
 
-    def read_search_results(self, *args) -> List[pd.DataFrame]:
+    def read_search_results(self, *args) -> Tuple[pd.DataFrame]:
         """
         Read search results for target-only, target-decoy, and decoy-only searches.
 
@@ -31,6 +31,9 @@ class FileReading:
             except Exception as e:
                 # Handle specific exceptions, log the error, and continue or raise a more informative exception
                 raise ValueError(f"Error reading file {args[idx]}: {e}") from e
+            
+        if len(dataframes) != 3:
+            raise ValueError(f"Expected 3 input files, but got {len(dataframes)}")
 
         return dataframes
 

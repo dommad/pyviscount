@@ -1,74 +1,28 @@
+"""Execution scripts to run different functionalities of PyViscount"""
 import logging
-import pandas as pd
 import numpy as np
-from functools import partial
-from .parsers import FastaParser
+import matplotlib.pyplot as plt
 from . import sequence_processing as sp
 from . import searchspace_analysis as sa
 from . import initializer as init
+from . import optimal_selection as osel
 from .utils import open_config
 from .template import FileReading, AveragedFdpFdr, ConfidenceInterval
-from .fdr import DecoyCountingCalculator, BhFdpFdrCalculator
-from .correction import TEVPartitionCorrection, SidakCorrectionMixin
 from .decoy_generation import ShuffledDecoy, PeptideDecoy
 from .exporter import PeptideExporter
 from .postsearch import PostSearchOrchestrated, ThresholdEvaluator
 from .scores import ScoreProcessing
-from . import optimal_selection as osel
-import matplotlib.pyplot as plt
+from .parsers import FastaParser
 
 
 
-def run_presearch_validation_new(config_file_path, full_target_file, partition_target_file, partition_td_file):
+def read_files(config, *args):
 
-    config = open_config(config_file_path)
+    parser_object = init.ParserInitializer(config).initialize()
+    search_results = FileReading(parser_object).read_search_results(*args)
 
-    logging.info("Started reading the files...")
+    return search_results
 
-    read_files = partial(_read_search_files, config)
-    #add_percolator_score = partial(_add_percolator_score, config)
-    #calculate_fdp_fdr = partial(_calculate_fdp_fdr, config)
-
-    full_df, part_t_df, part_td_df = read_files(full_target_file, partition_target_file, partition_td_file)
-    #full_df = add_percolator_score(full_df)
-
-    fdp_fdr_calculator = DecoyCountingCalculator
-    validation_object = init.PreSearchValidationInitializer(config, full_df, part_t_df, part_td_df, fdp_fdr_calculator).initialize()
-    fdp_fdr_results, thresholds = validation_object.calculate_fdp_fdr_contour()
-
-
-    #fdp_fdr_results, thresholds = calculate_fdp_fdr(full_df, part_t_df, part_td_df)
-
-    logging.info("Starting calculation of proxy FDP vs. FDR contour...")
-    plot_postsearch_results(config, fdp_fdr_results, full_df, part_t_df, part_td_df)
-    logging.info("Finished the analysis!")
-    return fdp_fdr_results, full_df
-
-
-def run_presearch_validation_single(config_file_path, full_target_file, partition_target_file, partition_td_file):
-
-    config = open_config(config_file_path)
-
-    logging.info("Started reading the files...")
-
-    read_files = partial(_read_search_files, config)
-    #add_percolator_score = partial(_add_percolator_score, config)
-    #calculate_fdp_fdr = partial(_calculate_fdp_fdr, config)
-
-    full_df, part_t_df, part_td_df = read_files(full_target_file, partition_target_file, partition_td_file)
-    #full_df = add_percolator_score(full_df)
-
-    fdp_fdr_calculator = DecoyCountingCalculator
-    validation_object = init.PreSearchValidationInitializer(config, full_df, part_t_df, part_td_df, fdp_fdr_calculator).initialize()
-    fdp_fdr_results, thresholds = validation_object.calculate_fdp_fdr_contour()
-
-
-    #fdp_fdr_results, thresholds = calculate_fdp_fdr(full_df, part_t_df, part_td_df)
-
-    logging.info("Starting calculation of proxy FDP vs. FDR contour...")
-    plot_postsearch_results(config, fdp_fdr_results, full_df, part_t_df, part_td_df)
-    logging.info("Finished the analysis!")
-    return fdp_fdr_results, full_df
 
 
 def run_presearch_validation(config_file_path, full_target_file, partition_target_file, partition_td_file):
@@ -77,114 +31,74 @@ def run_presearch_validation(config_file_path, full_target_file, partition_targe
 
     logging.info("Started reading the files...")
 
-    read_files = partial(_read_search_files, config)
-    #add_percolator_score = partial(_add_percolator_score, config)
-    calculate_fdp_fdr = partial(_calculate_fdp_fdr, config)
-
-    full_df, part_t_df, part_td_df = read_files(full_target_file, partition_target_file, partition_td_file)
-    # add Percolator score for quality filtering stage
+    full_df, part_t_df, part_td_df = read_files(config_file_path, full_target_file, partition_target_file, partition_td_file)
     #full_df = add_percolator_score(full_df)
-    #part_t_df = add_percolator_score(part_t_df)
-    fdp_fdr_results, thresholds = calculate_fdp_fdr(full_df, part_t_df, part_td_df)
 
     logging.info("Starting calculation of proxy FDP vs. FDR contour...")
-    plot_postsearch_results(config, fdp_fdr_results, full_df, part_t_df, part_td_df)
+    validation_object = init.PreSearchValidationInitializer(config, full_df, part_t_df, part_td_df).initialize()
+    fdp_fdr_results, thresholds = validation_object.calculate_fdp_fdr_contour()
+
+    plot_postsearch_results(config, fdp_fdr_results)
+    logging.info("Finished the analysis!")
+    return fdp_fdr_results, full_df
+
+
+
+def run_postsearch_validation(config_file, target_file, subject_file=None, decoy_file=None):
+
+    config = open_config(config_file)
+
+    subject_file = subject_file or target_file
+
+    logging.info("Started reading the files...")
+    target_df, subject_df, decoy_df = read_files(config, target_file, subject_file, decoy_file)
+    logging.info("Finished reading the files.")
+
+    target_df, subject_df, decoy_df = process_scores(config, target_df, subject_df, decoy_df)
+
+    logging.info("Starting calculation of proxy FDP vs. FDR contour...")
+    fdp_fdr_results = calculate_fdp_fdr(config, target_df, subject_df, decoy_df)
+
+    plot_postsearch_results(config, fdp_fdr_results)
+
+    opt_threshold = get_optimal_threshold(config, fdp_fdr_results)
+    bootstrap_results = bootstrap_fdp_fdr(config, opt_threshold, target_df, subject_df, decoy_df)
+    
+    plot_optimal_fdp_fdr(bootstrap_results)
     logging.info("Finished the analysis!")
 
-    return fdp_fdr_results
+    return fdp_fdr_results, bootstrap_results
 
 
-def _read_search_files(config, *args):
-    parser_object = init.ParserInitializer(config).initialize()
-    return FileReading(parser_object).read_search_results(*args)
+def calculate_fdp_fdr(config, target_df, subject_df, decoy_df):
+    """Run post-search validation and return FDP vs. FDR results."""
+    return PostSearchOrchestrated(config).run_postsearch_validation(target_df, subject_df, decoy_df)
 
 
-
-def _calculate_fdp_fdr(config, full_df, part_t_df, part_td_df):
-    fdp_fdr_calculator = DecoyCountingCalculator
-    validation_object = init.PreSearchValidationInitializer(config, full_df, part_t_df, part_td_df, fdp_fdr_calculator).initialize()
-    return validation_object.calculate_fdp_fdr_contour()
+def bootstrap_fdp_fdr(config, opt_threshold, target_df, subject_df, decoy_df):
+    """Run bootstrap analysis for optimal threshold."""
+    return PostSearchOrchestrated(config).run_postsearch_bootstrap(opt_threshold, target_df, subject_df, decoy_df)
 
 
-def run_postsearch_validation_single(config_file_path, target_file, subject_file=None, decoy_file=None):
-
-    config = open_config(config_file_path)
-
-    logging.info("Started reading the files...")
-    parser_object = init.ParserInitializer(config).initialize()
-    if subject_file is None:
-        subject_file = target_file
-    target_df, subject_df, decoy_df = FileReading(parser_object).read_search_results(target_file, subject_file, decoy_file)
-    logging.info("Finished reading the files.")
-
-    # section dedicated to postprocessor score addition
-    #if decoyfree, then subject_df = target_df
-    #if STD, then subject_df = target_df
-    #if TDC, then subject_df = td_df
-    score_processing = ScoreProcessing(config)
-    #subject_df = score_processing.correct_scores(subject_df)
-    #subject_df = score_processing.add_postprocessor_scores(subject_df)
-    
-
-    if score_processing.sidak_status == 'true':
-        target_df = score_processing.correct_sidak(target_df)
-        subject_df = score_processing.correct_sidak(subject_df)
-
-    if (score_processing.validation_mode == 'Std') and (score_processing.decoy_mode == 'P-value'):
-        target_df = score_processing.add_std_decoy_pval(target_df, decoy_df)
-        subject_df = score_processing.add_std_decoy_pval(subject_df, decoy_df)
-
-
-    logging.info("Corrected search space-dependent scores and added post-processor scores (if provided).")
-    logging.info("Starting calculation of proxy FDP vs. FDR contour...")
-
-    th_val = float(config.get("validation.extra", "tev_threshold").split(" ")[0].strip())
-    updated_df = PostSearchOrchestrated(config).run_postsearch_single_threshold(target_df, th_val, subject_df, decoy_df)
-    return updated_df
-
-
-
-def run_postsearch_validation_new(config_file_path, target_file, subject_file=None, decoy_file=None):
-
-    config = open_config(config_file_path)
-
-    logging.info("Started reading the files...")
-    parser_object = init.ParserInitializer(config).initialize()
-    if subject_file is None:
-        subject_file = target_file
-    target_df, subject_df, decoy_df = FileReading(parser_object).read_search_results(target_file, subject_file, decoy_file)
-    logging.info("Finished reading the files.")
-
-    # section dedicated to postprocessor score addition
-    #if decoyfree, then subject_df = target_df
-    #if STD, then subject_df = target_df
-    #if TDC, then subject_df = td_df
+def process_scores(config, target_df, subject_df, decoy_df):
+    """Correct and process the scores based on the configuration."""
     score_processing = ScoreProcessing(config)
     subject_df = score_processing.correct_scores(subject_df)
     subject_df = score_processing.add_postprocessor_scores(subject_df)
-    
 
+    # apply Sidak correction
     if score_processing.sidak_status == 'true':
         target_df = score_processing.correct_sidak(target_df)
         subject_df = score_processing.correct_sidak(subject_df)
 
-    if (score_processing.validation_mode == 'Std') and (score_processing.decoy_mode == 'P-value'):
+    # if user wants to use decoy-based p-values from separate target-decoy search
+    if score_processing.validation_mode == 'Std' and score_processing.decoy_mode == 'P-value':
         target_df = score_processing.add_std_decoy_pval(target_df, decoy_df)
         subject_df = score_processing.add_std_decoy_pval(subject_df, decoy_df)
 
-
     logging.info("Corrected search space-dependent scores and added post-processor scores (if provided).")
-    logging.info("Starting calculation of proxy FDP vs. FDR contour...")
-    fdp_fdr_results, _, updated_df = PostSearchOrchestrated(config).run_postsearch_validation(target_df, subject_df, decoy_df)
+    return target_df, subject_df, decoy_df
 
-    plot_postsearch_results(config, fdp_fdr_results, target_df, subject_df, decoy_df)
-
-    opt_threshold = get_optimal_threshold(config, fdp_fdr_results)
-    num_rep = 100
-    bootstrap_results, _, updated_df = PostSearchOrchestrated(config).run_postsearch_bootstrap(opt_threshold, num_rep, target_df, subject_df, decoy_df)
-    plot_optimal_fdp_fdr(bootstrap_results)
-    logging.info("Finished the analysis!")
-    return fdp_fdr_results, bootstrap_results
 
 
 def get_optimal_threshold(config, fdp_fdr_results):
@@ -194,9 +108,10 @@ def get_optimal_threshold(config, fdp_fdr_results):
     oq = osel.OptimalQualityThresholdFinder(fdp_fdr_results)
     norm_der_means, opt_threshold = oq.run(thresholds)
 
-    # abstract the number of thresholds out by taking 10% of the number of original thresholds
+    # maybe it'd be better to abstract the number of thresholds out by taking 10% of the number of original thresholds
     osel.Visualization().run_plots(norm_der_means, thresholds, 5, opt_threshold)
     return opt_threshold
+
 
 
 def plot_optimal_fdp_fdr(fdp_fdr_results):
@@ -210,6 +125,7 @@ def plot_optimal_fdp_fdr(fdp_fdr_results):
     plot_mean_cis_fdp_fdr(fdr_bins, cis_to_plot)
 
 
+
 def plot_mean_cis_fdp_fdr(fdr_bins, stats):
 
     fig, ax = plt.subplots(figsize=(7, 5))
@@ -221,96 +137,107 @@ def plot_mean_cis_fdp_fdr(fdr_bins, stats):
     ax.set_ylabel("Proxy FDP")
     fig.savefig("./mean_fdp_fdr.png", dpi=800, bbox_inches="tight")
 
-def run_postsearch_validation(config_file_path, target_file, td_file, decoy_file):
-
-    config = open_config(config_file_path)
-
-    logging.info("Started reading the files...")
- 
-    parser_object = init.ParserInitializer(config).initialize()
-    target_df, td_df, decoy_df = FileReading(parser_object).read_search_results(target_file, td_file, decoy_file)
-    
-    # for now, let's focus on TDC mode, later I will extend this to separated decoy and decoy-free
-
-    score_correction = init.PartitionScoreCorrectionInitializer(config, TEVPartitionCorrection).initialize()
-    td_df = score_correction.correct_tdc(td_df)
-
-    logging.info("Finished reading the files.")
-
-    postsearch_partition_object = init.PostSearchPartitionInitializer(config).initialize()
-    new_target_df, pep_mod_dict = postsearch_partition_object.add_peptide_modification_index_to_target_df(target_df)
-    peptide_id_mapping = postsearch_partition_object.create_peptide_subset_id_mapping(new_target_df)
-
-    logging.info("Peptide subset ID mapping created.")
 
 
-    logging.info("Starting calculation of proxy FDP vs. FDR contour...")
-    fdp_fdr_calculator = BhFdpFdrCalculator
-    postsearch_validation = init.PostSearchValidationInitializer(config, fdp_fdr_calculator, new_target_df, td_df, decoy_df, peptide_id_mapping, pep_mod_dict).initialize()
-    fdp_fdr_results, _ = postsearch_validation.calculate_fdp_fdr_contour()
-
-    plot_postsearch_results(config, fdp_fdr_results, target_df, target_df, target_df)
-    logging.info("Finished the analysis!")
-    return fdp_fdr_results, td_df
-
-
-def plot_postsearch_results(config, fdp_fdr_results, target_df, subject_df, decoy_df):
+def plot_postsearch_results(config, fdp_fdr_results):
     """Plotting the contour plot with proxy FDP vs. FDR"""
 
-    plotters = init.PlotPostSearchResultsInitializer(config, fdp_fdr_results, target_df, subject_df, decoy_df).initialize()
+    plotters = init.PlotPostSearchResultsInitializer(config, fdp_fdr_results).initialize()
     plotters.plot()
 
 
+
+# analysis of the partition process
+
 def run_sequence_db_partition(config_file_path):
+    """
+    Partition the sequence database and export the split search space.
+    """
 
-    config = open_config(config_file_path)
-    input_file_path = config.get('partition.general', 'search_space_path', fallback='./').strip()
+    try:
 
-    sequence_dict = FastaParser(input_file_path).parse()
+        config = open_config(config_file_path)
+        input_file_path = config.get('partition.general', 'search_space_path', fallback='./').strip()
 
+        sequence_dict = FastaParser(input_file_path).parse()
+
+        
+        partition_instance = init.SeqDBPartitionInitializer(config, sequence_dict).initialize()
+        partition_instance.split_search_space().export_split_search_space()
     
-    partition_instance = init.SeqDBPartitionInitializer(config, sequence_dict).initialize()
-    partition_instance.split_search_space().export_split_search_space()
+    except Exception as e:
+        logging.error(f"Error during sequence DB partition: {e}")
+        raise
 
 
 def run_decoy_generation(input_file_path):
-
-    sequence_dict = FastaParser(input_file_path).parse()
-    shuffled_seqs = ShuffledDecoy(sequence_dict, PeptideDecoy, ['K', "R"], ["P"]).generate()
-    export_object = PeptideExporter(input_file_path.split('/')[-1].split(".")[0] + "_decoy")
-    export_object.export_to_fasta("", shuffled_seqs, mode='DECOY')
+    """
+    Generate decoy sequences from input file and export to FASTA.
+    """
+    try:
+        sequence_dict = FastaParser(input_file_path).parse()
+        shuffled_seqs = ShuffledDecoy(sequence_dict, PeptideDecoy, ['K', "R"], ["P"]).generate()
+        export_object = PeptideExporter(input_file_path.split('/')[-1].split(".")[0] + "_decoy")
+        export_object.export_to_fasta("", shuffled_seqs, mode='DECOY')
+    
+    except Exception as e:
+        logging.error(f"Error during decoy generation: {e}")
+        raise
 
 
 def run_searchspace_analysis(input_files):
+    """
+    Analyze search space based on input files.
+    """
+    try:
+        all_aa_stats = [get_stats(file) for file in input_files]
+        comparison_types = [sa.AAProportionsComparison, sa.MassDistributionComparison, sa.TrypticSitesComparison]
+        comparison_runner = sa.AAComparisonRunner(comparison_types)
+        results = sa.PartitionQualityEvaluation(all_aa_stats, comparison_runner).run_analysis()
 
-    all_aa_stats = [get_stats(file) for file in input_files]
-    comparison_types = [sa.AAProportionsComparison, sa.MassDistributionComparison, sa.TrypticSitesComparison]
-    comparison_runner = sa.AAComparisonRunner(comparison_types)
-    results = sa.PartitionQualityEvaluation(all_aa_stats, comparison_runner).run_analysis()
+        return results
 
-    return results
+    except Exception as e:
+        logging.error(f"Error during search space analysis: {e}")
+        raise
 
 
 def get_stats(input_file):
+    """
+    Retrieve statistics from a given input file.
+    """
 
-    aa_dict = sp.get_amino_acid_mass_dict()
-    protein_dict = FastaParser(input_file).parse()
+    try:
+        aa_dict = sp.get_amino_acid_mass_dict()
+        protein_dict = FastaParser(input_file).parse()
 
-    aa_data = sa.AminoAcidData(aa_dict, protein_dict)
-    aa_counter = sa.AminoAcidCounter(aa_data)
-    aa_stats = sa.AminoAcidStatisticsCalculator(aa_counter).get_statistics()
+        aa_data = sa.AminoAcidData(aa_dict, protein_dict)
+        aa_counter = sa.AminoAcidCounter(aa_data)
+        aa_stats = sa.AminoAcidStatisticsCalculator(aa_counter).get_statistics()
 
-    return aa_stats
+        return aa_stats
+    
+    except Exception as e:
+        logging.error(f"Error while getting stats for file {input_file}: {e}")
+        raise
 
 
 def plot_searchspace_analysis_results(config_file_path, results):
+    """
+    Plot results from the search space analysis.
+    """
+    try:
+        config = open_config(config_file_path)
 
-    config = open_config(config_file_path)
+        aa_proportion_dict, mass_distributions, tryptic_sites = results
 
-    aa_proportion_dict, mass_distributions, tryptic_sites = results
+        plot_instance = init.PlotSearchSpaceAnalysisInitializer(config).initialize()
 
-    plot_instance = init.PlotSearchSpaceAnalysisInitializer(config).initialize()
+        plot_instance.barplot_aa_proportion(aa_proportion_dict)
+        plot_instance.plot_mass_distributions(mass_distributions)
+        plot_instance.barplot_tryptic_sites(tryptic_sites)
+    
+    except Exception as e:
+        logging.error(f"Error while plotting search space analysis results: {e}")
+        raise
 
-    plot_instance.barplot_aa_proportion(aa_proportion_dict)
-    plot_instance.plot_mass_distributions(mass_distributions)
-    plot_instance.barplot_tryptic_sites(tryptic_sites)

@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod
+"""Module containing initializers for different objects used in PyViscount analysis"""
 from .plot import PlotSearchSpaceAnalysis
 from .sequence_processing import get_amino_acid_mass_dict
 from .partition import PartitionSeqDB
@@ -83,11 +83,11 @@ class PostSearchPartitionInitializer:
 
 class PlotPostSearchResultsInitializer:
 
-    def __init__(self, config, fdp_fdr_results, target_df, subject_df, decoy_df):
+    def __init__(self, config, fdp_fdr_results):
 
         self.output_path = config.get('plotting', 'output_path', fallback='./').split(" ")[0].strip()
         self.fdp_fdr_plotter = plot.FdpFdrPlotter(fdp_fdr_results, self.output_path)
-        hist_score = config.get('validation.general', 'threshold_score', fallback='tev').split(" ")[0].strip()
+        # hist_score = config.get('validation.general', 'threshold_score', fallback='tev').split(" ")[0].strip()
         # self.hist_plotter = plot.HistogramPlotter(target_df, subject_df, decoy_df, 'kde', hist_score)
     
     def initialize(self):
@@ -110,15 +110,14 @@ class PartitionScoreCorrectionInitializer:
 
 class PreSearchValidationInitializer:
 
-    def __init__(self, config, full_target, part_t, part_td, fdp_fdr_calculator):
+    def __init__(self, config, full_target, part_t, part_td):
 
         self.full_target = full_target
         self.part_t = part_t
         self.part_td = part_td
         self.config = config
-        self.fdp_fdr_calculator = fdp_fdr_calculator
 
     def initialize(self):
-        return PreSearchValidation(self.config, self.full_target, self.part_t, self.part_td, self.fdp_fdr_calculator)
+        return PreSearchValidation(self.config, self.full_target, self.part_t, self.part_td)
 
 

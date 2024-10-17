@@ -9,7 +9,7 @@ from . import fdr
 class PreSearchValidation(QualityFiltering):
     """Process the data from pepxml files to get the proxy FDP vs. FDR results"""
 
-    def __init__(self, config, full_target_df, subset_df, subset_td_df, fdr_calculator: FdpFdrCalculator):
+    def __init__(self, config, full_target_df, subset_df, subset_td_df):
         
         self.t_df = full_target_df
         self.part_a_df = subset_df
@@ -22,8 +22,6 @@ class PreSearchValidation(QualityFiltering):
         self.num_partitions = float(config.get('partition.general', 'num_partitions', fallback=2).split(" ")[0].strip())
 
         self.decoy_factor = 1 # because target-decoy search is done on partitoned space already
-
-        self.fdr_calculator = fdr_calculator
 
         self.part_a_df.set_index('scan', inplace=True)
         self.part_a_td_df.set_index('scan', inplace=True)
