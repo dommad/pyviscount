@@ -1,18 +1,34 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
-name = "partipy"
-version = "0.0.1"
-authors = [
-  { name="Dominik Madej", email="dmadej@ust.hk"},
-]
-description = "Validation by partition for shotgun proteomics data"
+name = "pyviscount"
+version = "0.1.0"
+description = "Validation of FDR estimation methods by search space partition"
+
 readme = "README.md"
+
+authors = [
+    {name = "Dominik Madej", email = "dmadej@ust.hk"},
+]
+
 requires-python = ">=3.9"
+
+dependencies = [
+    "numpy>=1.21.0",
+    "pandas>=1.3.0",    
+]
+
+
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
 
-[project.urls]
-"Homepage" = "https://github.com/dommad/partipy"
-"Bug Tracker" = "https://github.com/dommad/partipy/issues"
+[project.scripts]
+pyviscount = "pyviscount.main:main"
+
+[tool.setuptools]
+packages = ["pyviscount"]
